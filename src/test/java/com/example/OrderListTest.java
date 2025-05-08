@@ -1,13 +1,12 @@
 package com.example;
 
-import com.example.utils.ResponsePrinter;
+import com.example.api.OrderApi;
+import com.example.utils.ResponseValidator;
 import io.qameta.allure.*;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import org.junit.Before;
 import org.junit.Test;
 
-import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 @Epic("API тесты")
@@ -17,25 +16,16 @@ public class OrderListTest {
 
     @Before
     public void setUp() {
-        RestAssured.baseURI = "https://qa-scooter.praktikum-services.ru";
+        // Инициализация базового URL перенесена в OrderApi
     }
 
     @Test
     @Severity(SeverityLevel.CRITICAL)
     @Description("Проверка получения списка заказов")
     public void getOrderListReturnsListOfOrders() {
-        Response response = getOrders();
-        ResponsePrinter.validateResponse("Get Order List", response, 200);
-        response.then()
-                .body("orders", notNullValue())
-                .body("orders.size()", greaterThan(0));
-    }
-
-    @Step("Получение списка заказов")
-    private Response getOrders() {
-        return given()
-                .header("Content-type", "application/json")
-                .when()
-                .get("/api/v1/orders");
+        Response response = OrderApi.getOrderList();
+        ResponseValidator.validateResponse("Get Order List", response, 200);
+        ResponseValidator.validateResponseBody(response, "orders", notNullValue());
+        ResponseValidator.validateResponseBody(response, "orders.size()", greaterThan(0));
     }
 }

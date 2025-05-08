@@ -1,15 +1,14 @@
 package com.example;
 
-public class Courier {
-    public String login;
-    public String password;
-    public String firstName;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-    public Courier(String login, String password, String firstName) {
-        this.login = login;
-        this.password = password;
-        this.firstName = firstName;
-    }
+@Data
+@AllArgsConstructor
+public class Courier {
+    private String login;
+    private String password;
+    private String firstName;
 
     public static Courier random() {
         return new Courier("user" + System.currentTimeMillis(), "1234", "Saske");

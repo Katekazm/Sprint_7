@@ -1,39 +1,40 @@
 package com.example;
 
+import com.example.api.CourierApi;
+import com.example.utils.ResponseValidator;
 import io.qameta.allure.*;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import com.example.utils.ResponsePrinter;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.apache.http.HttpStatus.*;
 
 @Epic("API тесты")
 @Feature("Курьеры")
 @Story("Авторизация курьера")
 public class CourierLoginTest {
 
-    private final String baseUrl = "https://qa-scooter.praktikum-services.ru";
     private int courierId;
     private Courier courier;
 
     @Before
     public void setUp() {
-        RestAssured.baseURI = baseUrl;
         courier = Courier.random();
-        createCourier(courier);
+        CourierApi.createCourier(courier);
     }
 
     @After
     public void tearDown() {
         if (courierId != 0) {
-            deleteCourier(courierId);
+            ResponseValidator.validateResponse(
+                "Delete Courier",
+                CourierApi.deleteCourier(courierId),
+                SC_OK
+            );
         }
     }
 
@@ -41,10 +42,7 @@ public class CourierLoginTest {
     @Severity(SeverityLevel.CRITICAL)
     @Description("Проверка успешной авторизации курьера")
     public void courierCanLoginSuccessfully() {
-        courierId = loginCourier(courier, 200)
-                .then().statusCode(200)
-                .body("id", notNullValue())
-                .extract().path("id");
+        courierId = CourierApi.getCourierId(courier);
     }
 
     @Test
@@ -52,16 +50,11 @@ public class CourierLoginTest {
     @Description("Проверка авторизации без пароля")
     public void loginFailsWithoutPassword() {
         Map<String, Object> request = new HashMap<>();
-        request.put("login", courier.login); // без пароля
+        request.put("login", courier.getLogin()); // без пароля
 
-        given()
-                .header("Content-type", "application/json")
-                .body(request)
-                .when()
-                .post("/api/v1/courier/login")
-                .then()
-                .statusCode(400)
-                .body("message", equalTo("Недостаточно данных для входа"));
+        Response response = CourierApi.loginCourier(new Courier(courier.getLogin(), null, courier.getFirstName()));
+        ResponseValidator.validateResponse("Login Without Password", response, SC_BAD_REQUEST);
+        ResponseValidator.validateResponseMessage(response, "Недостаточно данных для входа");
     }
 
     @Test
@@ -69,26 +62,21 @@ public class CourierLoginTest {
     @Description("Проверка авторизации без логина")
     public void loginFailsWithoutLogin() {
         Map<String, Object> request = new HashMap<>();
-        request.put("password", courier.password); // без логина
+        request.put("password", courier.getPassword()); // без логина
 
-        given()
-                .header("Content-type", "application/json")
-                .body(request)
-                .when()
-                .post("/api/v1/courier/login")
-                .then()
-                .statusCode(400)
-                .body("message", equalTo("Недостаточно данных для входа"));
+        Response response = CourierApi.loginCourier(new Courier(null, courier.getPassword(), courier.getFirstName()));
+        ResponseValidator.validateResponse("Login Without Login", response, SC_BAD_REQUEST);
+        ResponseValidator.validateResponseMessage(response, "Недостаточно данных для входа");
     }
 
     @Test
     @Severity(SeverityLevel.NORMAL)
     @Description("Проверка авторизации с неверным паролем")
     public void loginFailsWithWrongPassword() {
-        Courier wrongPass = new Courier(courier.login, "wrong123", courier.firstName);
-        loginCourier(wrongPass, 404).then()
-                .statusCode(404)
-                .body("message", equalTo("Учетная запись не найдена"));
+        Courier wrongPass = new Courier(courier.getLogin(), "wrong123", courier.getFirstName());
+        Response response = CourierApi.loginCourier(wrongPass);
+        ResponseValidator.validateResponse("Login With Wrong Password", response, SC_NOT_FOUND);
+        ResponseValidator.validateResponseMessage(response, "Учетная запись не найдена");
     }
 
     @Test
@@ -96,39 +84,9 @@ public class CourierLoginTest {
     @Description("Проверка авторизации несуществующего пользователя")
     public void loginFailsWithNonExistentUser() {
         Courier ghost = new Courier("ghostUser", "1234", "Nobody");
-        loginCourier(ghost, 404).then()
-                .statusCode(404)
-                .body("message", equalTo("Учетная запись не найдена"));
-    }
-
-    @Step("Создание курьера")
-    private void createCourier(Courier courier) {
-        given()
-                .header("Content-type", "application/json")
-                .body(courier)
-                .when()
-                .post("/api/v1/courier")
-                .then()
-                .statusCode(201);
-    }
-
-    @Step("Логин курьера")
-    private Response loginCourier(Courier courier, int expectedStatusCode) {
-        Response response = given()
-                .header("Content-type", "application/json")
-                .body(courier)
-                .when()
-                .post("/api/v1/courier/login");
-        ResponsePrinter.validateResponse("Courier Login", response, expectedStatusCode);
-        return response;
-    }
-
-    @Step("Удаление курьера по id")
-    private void deleteCourier(int id) {
-        Response response = given()
-                .delete("/api/v1/courier/" + id)
-                .thenReturn();
-        ResponsePrinter.validateResponse("Delete Courier", response, 200);
+        Response response = CourierApi.loginCourier(ghost);
+        ResponseValidator.validateResponse("Login Non-existent User", response, SC_NOT_FOUND);
+        ResponseValidator.validateResponseMessage(response, "Учетная запись не найдена");
     }
 }
 
