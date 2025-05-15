@@ -1,0 +1,5 @@
+.allure/
+.idea/
+target/*
+!target/allure-results/
+target/site/
